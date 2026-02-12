@@ -1,0 +1,8 @@
+simple project find
+1.total revenue
+2.total units sales
+3.total revenuse based on the city sales
+4.units based on brand sales
+5.sales person ooda performance
+6.top seliing model and least selling model
+
