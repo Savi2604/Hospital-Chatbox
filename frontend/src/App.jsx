@@ -23,7 +23,7 @@ function App() {
     try {
       // ✅ JSON Body-la data anupuramaari update pannirukaen
       // Idhu unga main.py-la irukura ChatRequest model-ku match aagum
-      const response = await axios.post("https://hospital-backend-1l0j.onrender.com/chat", {
+      const response = await axios.post("https://hospital-backend-1l9j.onrender.com/chat", {
         user_msg: currentUserInput,
         p_id: patientId || ""
       });
