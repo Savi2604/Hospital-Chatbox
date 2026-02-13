@@ -8,11 +8,11 @@ import google.generativeai as genai
 
 app = FastAPI()
 
-# 🛑 Security Note: API Key-ah .env file-la vekkuradhu nalladhu
+# 🛑 SECURITY WARNING: Intha API Key-ah use pannitu delete pannidunga.
+# .env file use panrathu thaan safe.
 genai.configure(api_key="AIzaSyDhue3_ca7E-ODpt4kNye-ayUc45tZvdqw")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# ✅ ENHANCED CORS Settings: Localhost ports maari maari vandhalum allow pannum
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -21,7 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# JSON Data Structure
 class ChatRequest(BaseModel):
     user_msg: str
     p_id: str = None
@@ -32,15 +31,15 @@ models.Base.metadata.create_all(bind=engine)
 def read_root():
     return {"status": "Hospital Backend is Live!"}
 
-# ✅ POST method with Pydantic model for JSON Body
 @app.post("/chat")
 def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
-    bot_reply = ""
     user_msg = request.user_msg
-    p_id = request.p_id
     user_msg_lower = user_msg.lower()
 
-    # 1. HARD-CODED KEYWORD MAPPING
+    # 1. SPECIALIST SELECTION LOGIC
+    suggested_specialist = "General Physician" # Default
+
+    # Hard-coded Keywords
     if any(word in user_msg_lower for word in ["chest", "heart", "cardio", "breathless"]):
         suggested_specialist = "Cardiologist"
     elif any(word in user_msg_lower for word in ["skin", "rash", "itch", "derma"]):
@@ -50,30 +49,39 @@ def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
     elif any(word in user_msg_lower for word in ["stomach", "gastric", "digestion"]):
         suggested_specialist = "Gastroenterologist"
     else:
-        # 2. IF NO KEYWORDS, ASK AI
+        # Ask Gemini for Specialist
         try:
-            prompt = f"Identify the medical specialist for: '{user_msg}'. One word only: [Cardiologist, Dermatologist, Orthopedic, Gastroenterologist, General Physician]."
-            response = model.generate_content(prompt)
+            ai_prompt = (
+                f"User symptom: '{user_msg}'. From the following list, which specialist should they see? "
+                "[Cardiologist, Dermatologist, Orthopedic, Gastroenterologist, General Physician]. "
+                "Answer with ONLY the specialist name."
+            )
+            response = model.generate_content(ai_prompt)
             suggested_specialist = response.text.strip().replace(".", "").title()
         except Exception as e:
-            print(f"AI Error: {e}")
-            suggested_specialist = "General Physician"
+            print(f"AI Specialist Error: {e}")
 
-    print(f"--- LOGS ---")
-    print(f"Input: {user_msg} | Match: {suggested_specialist}")
-
-    # 3. DATABASE QUERY
+    # 2. DOCTOR SEARCH IN DATABASE
     doctor = db.query(models.Doctor).filter(
         models.Doctor.specialization.ilike(f"%{suggested_specialist}%")
     ).first()
 
-    if doctor:
-        name = doctor.name
-        if not name.startswith("Dr."):
-            name = f"Dr. {name}"
-        bot_reply = f"AI analysis suggests a {suggested_specialist}. I recommend consulting {name}."
-    else:
-        bot_reply = f"AI suggests a {suggested_specialist}. Please consult our General Physician for now."
+    # 3. GET HELPFUL ADVICE FROM GEMINI (The "Related Answer" part)
+    try:
+        advice_prompt = (
+            f"The user has symptoms: '{user_msg}'. They are being referred to a {suggested_specialist}. "
+            "Give one very short, helpful medical tip or 'precautionary step' (under 15 words) for this situation."
+        )
+        advice_res = model.generate_content(advice_prompt)
+        ai_advice = advice_res.text.strip()
+    except:
+        ai_advice = "Please consult a doctor for further evaluation."
 
-    print(f"--- END ---")
+    # 4. FINAL REPLY CONSTRUCTION
+    if doctor:
+        doc_name = doctor.name if doctor.name.startswith("Dr.") else f"Dr. {doctor.name}"
+        bot_reply = f"AI analysis suggests a {suggested_specialist}. I recommend consulting {doc_name}. \n\nTip: {ai_advice}"
+    else:
+        bot_reply = f"AI suggests a {suggested_specialist}. We don't have a specific specialist available right now, so please consult our General Physician. \n\nTip: {ai_advice}"
+
     return {"reply": bot_reply}
