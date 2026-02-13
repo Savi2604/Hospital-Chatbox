@@ -10,6 +10,7 @@ import google.generativeai as genai
 app = FastAPI()
 
 # Gemini Config
+# Render Environment Variable-la API key sariyaa sethutteengala-nu check pannunga.
 API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyDhue3_ca7E-ODpt4kNye-ayUc45tZvdqw")
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
@@ -34,13 +35,19 @@ def read_root():
 
 @app.post("/chat")
 def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
-    user_msg = request.user_msg
+    user_msg = request.user_msg.strip()
     user_msg_lower = user_msg.lower()
 
-    # 1. SMART SPECIALIST SELECTION
-    # First, simple keywords-ah check pannuvom (Faster)
+    # ✨ 1. GREETING CHECK (Direct Reply - No Gemini)
+    # Hello, Hi-nu sonna direct-ah badhil varum.
+    greetings = ["hi", "hello", "hey", "halo", "vanakkam"]
+    if any(greet == user_msg_lower for greet in greetings):
+        return {"reply": "Hello! I am your AI Hospital Assistant. How can I help you with your symptoms today?"}
+
+    # 2. SMART SPECIALIST SELECTION
     suggested_specialist = None
 
+    # Keyword check (Faster)
     if any(word in user_msg_lower for word in ["chest", "heart", "cardio"]):
         suggested_specialist = "Cardiologist"
     elif any(word in user_msg_lower for word in ["skin", "rash", "itch"]):
@@ -50,7 +57,7 @@ def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
     elif any(word in user_msg_lower for word in ["stomach", "gastric", "digestion"]):
         suggested_specialist = "Gastroenterologist"
 
-    # Keyword match aagala na, Gemini kitta help kepom
+    # Keyword illana Gemini kitta help kepom
     if not suggested_specialist:
         try:
             ai_prompt = (
@@ -60,27 +67,29 @@ def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
             )
             response = model.generate_content(ai_prompt)
             suggested_specialist = response.text.strip().replace(".", "").title()
-        except Exception:
+        except Exception as e:
+            # Gemini-la error vandha (404/Invalid Key) General Physician-ku pogaadhu, 
+            # badhila advice mattum tharom.
+            print(f"Gemini Error: {e}")
             suggested_specialist = "General Physician"
 
-    # 2. DOCTOR SEARCH
+    # 3. DOCTOR SEARCH
     doctor = db.query(models.Doctor).filter(
         models.Doctor.specialization.ilike(f"%{suggested_specialist}%")
     ).first()
 
-    # 3. GET AI-POWERED ADVICE (The "Related" Part)
+    # 4. GET AI-POWERED ADVICE
     try:
-        # User symptom-ku related-ah advice Gemini kitta irunthu edupom
         advice_prompt = (
             f"The user has: '{user_msg}'. You suggested a {suggested_specialist}. "
-            "Give a very brief medical tip or explanation (max 15 words) why they need this specialist."
+            "Give a very brief medical tip (max 15 words) for this symptom."
         )
         advice_res = model.generate_content(advice_prompt)
         ai_advice = advice_res.text.strip()
     except Exception:
         ai_advice = "Please consult a professional for a detailed checkup."
 
-    # 4. FINAL RESPONSE
+    # 5. FINAL RESPONSE
     if doctor:
         doc_name = doctor.name if doctor.name.startswith("Dr.") else f"Dr. {doctor.name}"
         bot_reply = f"Based on your symptoms, I recommend seeing a **{suggested_specialist}**. You can consult **{doc_name}** in our hospital.\n\n**Note:** {ai_advice}"
