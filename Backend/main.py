@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel  # Puthiya import
+from pydantic import BaseModel
 import models
 from database import engine, get_db
 import google.generativeai as genai
@@ -12,16 +12,16 @@ app = FastAPI()
 genai.configure(api_key="AIzaSyDhue3_ca7E-ODpt4kNye-ayUc45tZvdqw")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# ✅ CORS Settings (Keep this as it is)
+# ✅ ENHANCED CORS Settings: Localhost ports maari maari vandhalum allow pannum
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# JSON Data Structure define panrom
+# JSON Data Structure
 class ChatRequest(BaseModel):
     user_msg: str
     p_id: str = None
@@ -32,11 +32,11 @@ models.Base.metadata.create_all(bind=engine)
 def read_root():
     return {"status": "Hospital Backend is Live!"}
 
-# ✅ JSON Body use panni function-ah update pannirukaen
+# ✅ POST method with Pydantic model for JSON Body
 @app.post("/chat")
 def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
     bot_reply = ""
-    user_msg = request.user_msg # Request-la irundhu edukkudhu
+    user_msg = request.user_msg
     p_id = request.p_id
     user_msg_lower = user_msg.lower()
 
@@ -55,7 +55,8 @@ def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
             prompt = f"Identify the medical specialist for: '{user_msg}'. One word only: [Cardiologist, Dermatologist, Orthopedic, Gastroenterologist, General Physician]."
             response = model.generate_content(prompt)
             suggested_specialist = response.text.strip().replace(".", "").title()
-        except:
+        except Exception as e:
+            print(f"AI Error: {e}")
             suggested_specialist = "General Physician"
 
     print(f"--- LOGS ---")
@@ -70,7 +71,6 @@ def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
         name = doctor.name
         if not name.startswith("Dr."):
             name = f"Dr. {name}"
-            
         bot_reply = f"AI analysis suggests a {suggested_specialist}. I recommend consulting {name}."
     else:
         bot_reply = f"AI suggests a {suggested_specialist}. Please consult our General Physician for now."
