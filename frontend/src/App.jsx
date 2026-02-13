@@ -21,8 +21,8 @@ function App() {
     setInput("");
 
     try {
-      // 2. 127.0.0.1 use panradhu safe (Windows port issues thavirkka)
-      const response = await axios.get(`http://127.0.0.1:8000/chat`, {
+      // ✅ Updated Axios Call: Sending data as Query Params to match your FastAPI @app.post setup
+      const response = await axios.post("https://hospital-backend-1l0j.onrender.com/chat", null, {
         params: {
           user_msg: currentUserInput,
           p_id: patientId || ""
@@ -36,12 +36,11 @@ function App() {
     } catch (error) {
       console.error("Error connecting to backend:", error);
       
-      // Error message specific-ah kaata
       let errorMsg = "Backend kooda connect panna mudiyala. ";
       if (error.response) {
         errorMsg += `Server Error: ${error.response.status}`;
       } else {
-        errorMsg += "Check if Python server (uvicorn) is running on port 8000.";
+        errorMsg += "Check your internet or Render backend status.";
       }
 
       setMessages(prev => [...prev, { text: errorMsg, sender: "bot" }]);

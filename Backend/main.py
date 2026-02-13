@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 import models
@@ -11,7 +11,7 @@ app = FastAPI()
 genai.configure(api_key="AIzaSyDhue3_ca7E-ODpt4kNye-ayUc45tZvdqw")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# ✅ CORS Settings (Keep this as it is)
+# ✅ CORS Settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,9 +26,13 @@ models.Base.metadata.create_all(bind=engine)
 def read_root():
     return {"status": "Hospital Backend is Live!"}
 
-# ✅ Change to @app.post because your Frontend uses axios.post
+# ✅ Frontend 'params' kooda match panna Query() add pannirukaen
 @app.post("/chat")
-def hospital_bot(user_msg: str, p_id: str = None, db: Session = Depends(get_db)):
+def hospital_bot(
+    user_msg: str = Query(...), 
+    p_id: str = Query(None), 
+    db: Session = Depends(get_db)
+):
     bot_reply = ""
     user_msg_lower = user_msg.lower()
 
