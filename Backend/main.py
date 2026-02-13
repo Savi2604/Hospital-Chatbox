@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel  # Puthiya import
 import models
 from database import engine, get_db
 import google.generativeai as genai
@@ -11,7 +12,7 @@ app = FastAPI()
 genai.configure(api_key="AIzaSyDhue3_ca7E-ODpt4kNye-ayUc45tZvdqw")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# ✅ CORS Settings
+# ✅ CORS Settings (Keep this as it is)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,20 +21,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# JSON Data Structure define panrom
+class ChatRequest(BaseModel):
+    user_msg: str
+    p_id: str = None
+
 models.Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def read_root():
     return {"status": "Hospital Backend is Live!"}
 
-# ✅ Frontend 'params' kooda match panna Query() add pannirukaen
+# ✅ JSON Body use panni function-ah update pannirukaen
 @app.post("/chat")
-def hospital_bot(
-    user_msg: str = Query(...), 
-    p_id: str = Query(None), 
-    db: Session = Depends(get_db)
-):
+def hospital_bot(request: ChatRequest, db: Session = Depends(get_db)):
     bot_reply = ""
+    user_msg = request.user_msg # Request-la irundhu edukkudhu
+    p_id = request.p_id
     user_msg_lower = user_msg.lower()
 
     # 1. HARD-CODED KEYWORD MAPPING
@@ -68,10 +72,8 @@ def hospital_bot(
             name = f"Dr. {name}"
             
         bot_reply = f"AI analysis suggests a {suggested_specialist}. I recommend consulting {name}."
-        print(f"DB Result: Found {doctor.name}")
     else:
         bot_reply = f"AI suggests a {suggested_specialist}. Please consult our General Physician for now."
-        print(f"DB Result: NO MATCH FOUND")
 
     print(f"--- END ---")
     return {"reply": bot_reply}

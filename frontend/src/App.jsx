@@ -13,7 +13,7 @@ function App() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // 1. User message-ah screen-la instant-ah update panrom
+    // 1. User message-ah screen-la instant-ah kaatuvom
     const userMsgObj = { text: input, sender: "user" };
     setMessages(prev => [...prev, userMsgObj]);
     
@@ -21,15 +21,14 @@ function App() {
     setInput("");
 
     try {
-      // ✅ Updated Axios Call: Sending data as Query Params to match your FastAPI @app.post setup
-      const response = await axios.post("https://hospital-backend-1l0j.onrender.com/chat", null, {
-        params: {
-          user_msg: currentUserInput,
-          p_id: patientId || ""
-        }
+      // ✅ JSON Body-la data anupuramaari update pannirukaen
+      // Idhu unga main.py-la irukura ChatRequest model-ku match aagum
+      const response = await axios.post("https://hospital-backend-1l0j.onrender.com/chat", {
+        user_msg: currentUserInput,
+        p_id: patientId || ""
       });
 
-      // 3. Bot-oda reply-ah screen-la kaatuvom
+      // 2. Bot-oda reply-ah screen-la kaatuvom
       if (response.data && response.data.reply) {
         setMessages(prev => [...prev, { text: response.data.reply, sender: "bot" }]);
       }
