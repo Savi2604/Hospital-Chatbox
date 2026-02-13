@@ -7,9 +7,11 @@ import google.generativeai as genai
 
 app = FastAPI()
 
+# 🛑 Security Note: API Key-ah .env file-la vekkuradhu nalladhu
 genai.configure(api_key="AIzaSyDhue3_ca7E-ODpt4kNye-ayUc45tZvdqw")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
+# ✅ CORS Settings (Keep this as it is)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,12 +26,13 @@ models.Base.metadata.create_all(bind=engine)
 def read_root():
     return {"status": "Hospital Backend is Live!"}
 
-@app.get("/chat")
+# ✅ Change to @app.post because your Frontend uses axios.post
+@app.post("/chat")
 def hospital_bot(user_msg: str, p_id: str = None, db: Session = Depends(get_db)):
     bot_reply = ""
     user_msg_lower = user_msg.lower()
 
-    # 1. HARD-CODED KEYWORD MAPPING (To bypass AI confusion)
+    # 1. HARD-CODED KEYWORD MAPPING
     if any(word in user_msg_lower for word in ["chest", "heart", "cardio", "breathless"]):
         suggested_specialist = "Cardiologist"
     elif any(word in user_msg_lower for word in ["skin", "rash", "itch", "derma"]):
@@ -51,13 +54,11 @@ def hospital_bot(user_msg: str, p_id: str = None, db: Session = Depends(get_db))
     print(f"Input: {user_msg} | Match: {suggested_specialist}")
 
     # 3. DATABASE QUERY
-    # %...% use panradhaala Rajesh (Cardiologist) kandaipa match aavaaru
     doctor = db.query(models.Doctor).filter(
         models.Doctor.specialization.ilike(f"%{suggested_specialist}%")
     ).first()
 
     if doctor:
-        # Formatting Name
         name = doctor.name
         if not name.startswith("Dr."):
             name = f"Dr. {name}"
@@ -65,7 +66,6 @@ def hospital_bot(user_msg: str, p_id: str = None, db: Session = Depends(get_db))
         bot_reply = f"AI analysis suggests a {suggested_specialist}. I recommend consulting {name}."
         print(f"DB Result: Found {doctor.name}")
     else:
-        # Backup only if specialist is not in DB
         bot_reply = f"AI suggests a {suggested_specialist}. Please consult our General Physician for now."
         print(f"DB Result: NO MATCH FOUND")
 
